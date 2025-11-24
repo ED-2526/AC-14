@@ -36,4 +36,4 @@ df_treballadors.columns = ['age', 'sex', 'self_employed', 'family_history', 'tre
 df_combinat = pd.concat([df_estudiants, df_treballadors], ignore_index=True)
 
 # Comprovar els primers resultats
-print(df_combinat.tail())
+print(df_combinat.tail())   
