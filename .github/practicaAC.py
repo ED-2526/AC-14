@@ -1,0 +1,2 @@
+
+print("prova, aprenentatge computacional")
