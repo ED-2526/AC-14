@@ -135,6 +135,8 @@ def codificar_leave(valor):
 # 5. APLICAR CODIFICACIÓN A VALORES DE WORKERS Y MODIFICAR COLUMNAS'
 df_treballadors['sex'] = df_treballadors['Gender'].apply(codificar_sexo).astype(int)
 
+df_treballadors['sex'] = df_treballadors['sex'].apply(codificar_sexo).astype(int)
+
 df_treballadors['self_employed'] = df_treballadors['self_employed'].apply(codificar_self_employed).astype(int)
 
 df_treballadors['family_history'] = df_treballadors['family_history'].apply(codificar_family_history).astype(int)
@@ -171,6 +173,7 @@ df_treballadors['obs_consequence'] = df_treballadors['obs_consequence'].apply(co
 df_treballadors_renamed = df_treballadors.rename(columns={
     'Age': 'age',
     'Country': 'country',
+    'sex': 'sex',
     'state': 'state',
     'self_employed': 'self_employed',
     'family_history': 'family_history',
