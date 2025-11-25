@@ -119,3 +119,5 @@ print(f"Valores nulos en sex: {df_combinat['sex'].isnull().sum()}")
 # 11. GUARDAR EL DATASET COMBINADO
 df_combinat.to_csv('dataset_combinado.csv', index=False)
 print("\n[EXITO] Dataset combinado guardado como 'dataset_combinado.csv'")
+
+
