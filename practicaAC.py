@@ -37,9 +37,126 @@ def codificar_sexo(valor):
         return 3
     else:
         return 3  # Otro para cualquier otro caso
+    
+def codificar_self_employed(valor):
+    if pd.isna(valor):
+        return int(2)  # Otro para valores nulos
+    
+    valor = str(valor).lower().strip()
+    
+    if valor in ['yes', 'y', 'true', '1']:
+        return int(1)
+    elif valor in ['no', 'n', 'false', '0']:
+        return int(0)
+    else:
+        return int(2)  # Otro para cualquier otro caso
 
-# 5. APLICAR CODIFICACIÓN AL GÉNERO DE WORKERS Y CREAR COLUMNA 'sex'
-df_treballadors['sex'] = df_treballadors['Gender'].apply(codificar_sexo)
+def codificar_family_history(valor):
+    if pd.isna(valor):
+        return int(2)  # Otro para valores nulos
+    
+    valor = str(valor).lower().strip()
+    
+    if valor in ['yes', 'y', 'true', '1']:
+        return int(1)
+    elif valor in ['no', 'n', 'false', '0']:
+        return int(0)
+    else:
+        return int(2)  # Otro para cualquier otro caso
+    
+def codificar_treatment(valor):
+    if pd.isna(valor):
+        return int(2)  # Otro para valores nulos
+    
+    valor = str(valor).lower().strip()
+    
+    if valor in ['yes', 'y', 'true', '1']:
+        return int(1)
+    elif valor in ['no', 'n', 'false', '0']:
+        return int(0)
+    else:
+        return int(2)  # Otro para cualquier otro caso
+    
+def codificar_work_interfere(valor):
+    mapping = {
+        'Never': 0,
+        'Rarely': 1,
+        'Sometimes': 2,
+        'Often': 3
+    }
+    return mapping.get(valor, 4)  # 4 para otros casos o nulos
+
+def codificar_no_employees(valor):
+    mapping = {
+        '1-5': 0,
+        '6-25': 1,
+        '26-100': 2,
+        '100-500': 3,
+        '500-1000': 4,
+        '1000-5000': 5,
+        '5000-10000': 6,
+        '10000+': 7,
+        'More than 1000': 5
+    }
+    return mapping.get(valor, 8)  # 8 para otros casos o nulos
+
+def codificar_si_no_otro(valor):
+    if pd.isna(valor):
+        return int(2)  # Otro para valores nulos
+    
+    valor = str(valor).lower().strip()
+    
+    if valor in ['yes', 'y', 'true', '1']:
+        return int(1)
+    elif valor in ['no', 'n', 'false', '0']:
+        return int(0)
+    else:
+        return int(2)  # Otro para cualquier otro caso
+    
+def codificar_leave(valor):
+    mapping = {
+        'Very easy': 0,
+        'Somewhat easy': 1,
+        'Somewhat difficult': 2,
+        'Very difficult': 3
+    }
+    return mapping.get(valor, 4)  # 4 para otros casos o nulos
+
+
+# 5. APLICAR CODIFICACIÓN A VALORES DE WORKERS Y MODIFICAR COLUMNAS'
+df_treballadors['sex'] = df_treballadors['Gender'].apply(codificar_sexo).astype(int)
+
+df_treballadors['self_employed'] = df_treballadors['self_employed'].apply(codificar_self_employed).astype(int)
+
+df_treballadors['family_history'] = df_treballadors['family_history'].apply(codificar_family_history).astype(int)
+
+df_treballadors['treatment'] = df_treballadors['treatment'].apply(codificar_treatment).astype(int)
+
+df_treballadors['work_interfere'] = df_treballadors['work_interfere'].apply(codificar_work_interfere).astype(int)
+
+df_treballadors['no_employees'] = df_treballadors['no_employees'].apply(codificar_no_employees).astype(int)
+
+df_treballadors['remote_work'] = df_treballadors['remote_work'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['tech_company'] = df_treballadors['tech_company'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['benefits'] = df_treballadors['benefits'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['care_options'] = df_treballadors['care_options'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['wellness_program'] = df_treballadors['wellness_program'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['seek_help'] = df_treballadors['seek_help'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['anonymity'] = df_treballadors['anonymity'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['leave'] = df_treballadors['leave'].apply(codificar_leave).astype(int)
+df_treballadors['mental_health_consequence'] = df_treballadors['mental_health_consequence'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['phys_health_consequence'] = df_treballadors['phys_health_consequence'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['coworkers'] = df_treballadors['coworkers'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['supervisor'] = df_treballadors['supervisor'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['mental_health_interview'] = df_treballadors['mental_health_interview'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['phys_health_interview'] = df_treballadors['phys_health_interview'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['mental_vs_physical'] = df_treballadors['mental_vs_physical'].apply(codificar_si_no_otro).astype(int)
+df_treballadors['obs_consequence'] = df_treballadors['obs_consequence'].apply(codificar_si_no_otro).astype(int)
+
+
+
+
+
 
 # 6. RENOMBRAR COLUMNAS DE WORKERS (eliminamos Gender ya que tenemos sex)
 df_treballadors_renamed = df_treballadors.rename(columns={
