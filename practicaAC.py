@@ -132,21 +132,15 @@ def codificar_leave(valor):
     return mapping.get(valor, 4)  # 4 para otros casos o nulos
 
 
-# 5. APLICAR CODIFICACIÓN A VALORES DE WORKERS Y MODIFICAR COLUMNAS'
+# 5. APLICAR CODIFICACIÓN A VALORES DE WORKERS Y MODIFICAR COLUMNAS
+
+# Codificar els treballadors abans de la combinació
 df_treballadors['sex'] = df_treballadors['Gender'].apply(codificar_sexo).astype(int)
-
-df_treballadors['sex'] = df_treballadors['sex'].apply(codificar_sexo).astype(int)
-
 df_treballadors['self_employed'] = df_treballadors['self_employed'].apply(codificar_self_employed).astype(int)
-
 df_treballadors['family_history'] = df_treballadors['family_history'].apply(codificar_family_history).astype(int)
-
 df_treballadors['treatment'] = df_treballadors['treatment'].apply(codificar_treatment).astype(int)
-
 df_treballadors['work_interfere'] = df_treballadors['work_interfere'].apply(codificar_work_interfere).astype(int)
-
 df_treballadors['no_employees'] = df_treballadors['no_employees'].apply(codificar_no_employees).astype(int)
-
 df_treballadors['remote_work'] = df_treballadors['remote_work'].apply(codificar_si_no_otro).astype(int)
 df_treballadors['tech_company'] = df_treballadors['tech_company'].apply(codificar_si_no_otro).astype(int)
 df_treballadors['benefits'] = df_treballadors['benefits'].apply(codificar_si_no_otro).astype(int)
@@ -164,16 +158,10 @@ df_treballadors['phys_health_interview'] = df_treballadors['phys_health_intervie
 df_treballadors['mental_vs_physical'] = df_treballadors['mental_vs_physical'].apply(codificar_si_no_otro).astype(int)
 df_treballadors['obs_consequence'] = df_treballadors['obs_consequence'].apply(codificar_si_no_otro).astype(int)
 
-
-
-
-
-
 # 6. RENOMBRAR COLUMNAS DE WORKERS (eliminamos Gender ya que tenemos sex)
 df_treballadors_renamed = df_treballadors.rename(columns={
     'Age': 'age',
     'Country': 'country',
-    'sex': 'sex',
     'state': 'state',
     'self_employed': 'self_employed',
     'family_history': 'family_history',
@@ -202,19 +190,18 @@ df_treballadors_renamed = df_treballadors.rename(columns={
 # Eliminar la columna Gender original ya que tenemos sex
 df_treballadors_renamed = df_treballadors_renamed.drop('Gender', axis=1)
 
-# 7. REORDENAR COLUMNAS - ID y SOURCE primero
+# Reordenar columnas, primero id y source
 columnas_base = ['id', 'source', 'age', 'sex']
-columnas_restantes_est = [col for col in df_estudiants.columns if col not in columnas_base]
-columnas_estudiantes = columnas_base + columnas_restantes_est
-df_estudiants = df_estudiants[columnas_estudiantes]
-
-# Para workers: id, source, age, sex primero, luego el resto (no tienen year)
 columnas_restantes_work = [col for col in df_treballadors_renamed.columns if col not in columnas_base]
 columnas_trabajadores = columnas_base + columnas_restantes_work
 df_treballadors_renamed = df_treballadors_renamed[columnas_trabajadores]
 
-# 8. COMBINAR MANTENIENDO TODAS LAS COLUMNAS
+# 7. COMBINAR MANTENIENDO TODAS LAS COLUMNAS
 df_combinat = pd.concat([df_estudiants, df_treballadors_renamed], ignore_index=True, sort=False)
+
+# 8. GUARDAR EL DATASET COMBINADO
+df_combinat.to_csv('dataset_combinado.csv', index=False)
+print("\n[EXITO] Dataset combinado guardado como 'dataset_combinado.csv'")
 
 # 9. VERIFICACIÓN
 print("=== VERIFICACION DE IDs Y SEX ===")
@@ -273,7 +260,3 @@ df_combinat = pd.concat([df_estudiants, df_treballadors], ignore_index=True)
 # Reorganitzar les columnes per posar 'source' al principi
 cols = ['source'] + [col for col in df_combinat.columns if col != 'source']
 df_combinat = df_combinat[cols]
-
-# 11. GUARDAR EL DATASET COMBINADO
-df_combinat.to_csv('dataset_combinado.csv', index=False)
-print("\n[EXITO] Dataset combinado guardado como 'dataset_combinado.csv'")
