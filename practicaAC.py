@@ -46,7 +46,7 @@ def codificar_sexo(valor):
         return 3
     else:
         return 3  # Otro para cualquier otro caso
-    
+
 def codificar_self_employed(valor):
     if pd.isna(valor):
         return int(2)  # Otro para valores nulos
@@ -72,7 +72,7 @@ def codificar_family_history(valor):
         return int(0)
     else:
         return int(2)  # Otro para cualquier otro caso
-    
+
 def codificar_treatment(valor):
     if pd.isna(valor):
         return int(2)  # Otro para valores nulos
@@ -85,7 +85,7 @@ def codificar_treatment(valor):
         return int(0)
     else:
         return int(2)  # Otro para cualquier otro caso
-    
+
 def codificar_work_interfere(valor):
     mapping = {
         'Never': 0,
@@ -121,7 +121,7 @@ def codificar_si_no_otro(valor):
         return int(0)
     else:
         return int(2)  # Otro para cualquier otro caso
-    
+
 def codificar_leave(valor):
     mapping = {
         'Very easy': 0,
@@ -131,9 +131,7 @@ def codificar_leave(valor):
     }
     return mapping.get(valor, 4)  # 4 para otros casos o nulos
 
-
 # 5. APLICAR CODIFICACIÓN A VALORES DE WORKERS Y MODIFICAR COLUMNAS
-
 # Codificar els treballadors abans de la combinació
 df_treballadors['sex'] = df_treballadors['Gender'].apply(codificar_sexo).astype('Int64')
 df_treballadors['self_employed'] = df_treballadors['self_employed'].apply(codificar_self_employed).astype('Int64')
@@ -221,8 +219,6 @@ for columna in columnas_students_enteras:
     if columna in df_combinat.columns:
         df_combinat[columna] = pd.to_numeric(df_combinat[columna], errors='coerce').astype('Int64')
 
-
-
 # 8. GUARDAR EL DATASET COMBINADO
 df_combinat.to_csv('dataset_combinado.csv', index=False)
 print("\n[EXITO] Dataset combinado guardado como 'dataset_combinado.csv'")
@@ -255,32 +251,3 @@ print(f"Total registros: {len(df_combinat)}")
 print(f"IDs unicos?: {df_combinat['id'].nunique() == len(df_combinat)}")
 print(f"Valores unicos en sex: {sorted(df_combinat['sex'].unique())}")
 print(f"Valores nulos en sex: {df_combinat['sex'].isnull().sum()}")
-# Comprovar que els IDs s'han assignat correctament (eliminant NaN)
-print(df_treballadors[['id']].head())
-
-# Convertir la columna 'id' a enters, per evitar qualsevol valor no numèric
-df_treballadors['id'] = df_treballadors['id'].astype(int)
-
-# Eliminar qualsevol fila amb NaN a la columna 'id' (per si es va filtrar alguna cosa incorrecta)
-df_treballadors = df_treballadors.dropna(subset=['id'])
-
-# Seleccionar només les columnes d'interès dels treballadors per igualar-les amb les dels estudiants
-df_treballadors = df_treballadors[['source','id','Age', 'Gender', 'self_employed', 'family_history', 'treatment', 'work_interfere', 
-                                   'no_employees', 'remote_work', 'tech_company', 'benefits', 'care_options', 
-                                   'wellness_program', 'seek_help', 'anonymity', 'leave', 'mental_health_consequence', 
-                                   'phys_health_consequence', 'coworkers', 'supervisor', 'mental_health_interview', 
-                                   'phys_health_interview', 'mental_vs_physical', 'obs_consequence', 'comments']]
-
-# Renombrar les columnes dels treballadors perquè coincideixin amb les dels estudiants
-df_treballadors.columns = ['source','id','age', 'sex', 'self_employed', 'family_history', 'treatment', 'work_interfere', 
-                           'no_employees', 'remote_work', 'tech_company', 'benefits', 'care_options', 
-                           'wellness_program', 'seek_help', 'anonymity', 'leave', 'mental_health_consequence', 
-                           'phys_health_consequence', 'coworkers', 'supervisor', 'mental_health_interview', 
-                           'phys_health_interview', 'mental_vs_physical', 'obs_consequence', 'comments']
-
-# Combinar els dos datasets
-df_combinat = pd.concat([df_estudiants, df_treballadors], ignore_index=True)
-
-# Reorganitzar les columnes per posar 'source' al principi
-cols = ['source'] + [col for col in df_combinat.columns if col != 'source']
-df_combinat = df_combinat[cols]
