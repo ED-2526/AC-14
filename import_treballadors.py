@@ -1,18 +1,15 @@
 import pandas as pd
 import numpy as np # Importació implícita per a pd.isna()
 
-# 1. LLEGIR EL DATASET DELS TREBALLADORS
-try:
-    df_treballadors = pd.read_csv('treballadors.csv')
-    print("Dataset de Treballadors carregat.")
-except FileNotFoundError:
-    print("Error: L'arxiu 'treballadors.csv' no es troba. Assegura't del nom correcte.")
-    exit()
+
+df_treballadors = pd.read_csv('treballadors.csv')
+print("Dataset de Treballadors carregat.")
+
 
 # ====================================================================
 # 2. DEFINICIÓ DE LES FUNCIONS DE CODIFICACIÓ
 # ====================================================================
-
+df_treballadors = df_treballadors[df_treballadors['Age'] < 100].copy()
 # Funció per codificar Gender. Mapeig desitjat:
 # 1: Mascle (Male)
 # 2: Dona (Female)
@@ -42,6 +39,8 @@ def codificar_sexo(valor):
         return 3
     else:
         return 3
+    
+
 
 # Funció per codificar Sí/No/Altre -> (1=Yes, 0=No, 2=Altre/Nul)
 # S'han mantingut les funcions de l'usuari tot i la redundància
