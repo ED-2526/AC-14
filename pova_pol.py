@@ -63,6 +63,25 @@ kmeans_clusters = kmeans.fit_predict(X_final_array)
 df_treballadors.loc[X_final.index, 'cluster_kmeans'] = kmeans_clusters.astype(int)
 models_info.append(('K-Means', kmeans_clusters, 'cluster_kmeans'))
 
+# Plot K-Means points
+plt.figure(figsize=(8, 6))
+
+# Fem servir les dues primeres columnes de X_final_array (Age i work_interfere escalats)
+plt.scatter(
+    X_final_array[:, 0],   # Age (escalat)
+    X_final_array[:, 1],   # work_interfere (escalat)
+    c=kmeans_clusters,     # color segons el cluster
+    alpha=0.8
+)
+
+plt.xlabel('Age (escalat)')
+plt.ylabel('Work_interfere (escalat)')
+plt.title('K-Means (K=4) sobre treballadors')
+plt.colorbar(label='Cluster K-Means')
+plt.tight_layout()
+plt.show()
+
+
 # Gaussian Mixture Model (GMM)
 gmm = GaussianMixture(n_components=K, random_state=42)
 gmm.fit(X_final_array)

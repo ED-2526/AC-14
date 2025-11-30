@@ -8,7 +8,7 @@ import pandas as pd
 
 
 
-df_estudiants = pd.read_csv('estudiants_med.csv')
+df_estudiants = pd.read_csv('treballadors_definitiu.csv')
 
 
 X = df_estudiants[['sex', 'stud_h', 'health']]  
