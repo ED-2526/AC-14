@@ -5,7 +5,7 @@ import seaborn as sns
 from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import davies_bouldin_score
+from sklearn.metrics import davies_bouldin_score, calinski_harabasz_score
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -56,12 +56,12 @@ for name, vars_list in variable_combinations.items():
 
 
 # ====================================================================
-# 3. FUNCION DE EVALUACION CON DAVIES-BOULDIN
+# 3. FUNCION DE EVALUACION CON DAVIES-BOULDIN Y CALINSKI-HARABASZ
 # ====================================================================
 
 def evaluar_clustering(X, n_clusters, metodo):
     """
-    Evalua clustering usando Davies-Bouldin (menor = mejor)
+    Evalua clustering usando Davies-Bouldin (menor = mejor) y Calinski-Harabasz (mayor = mejor)
     """
     try:
         if metodo == 'kmeans':
@@ -74,25 +74,29 @@ def evaluar_clustering(X, n_clusters, metodo):
             model = AgglomerativeClustering(n_clusters=n_clusters, linkage='ward')
             labels = model.fit_predict(X)
         else:
-            return None, None
+            return None, None, None
             
-        # Calcular Davies-Bouldin score
-        db_score = davies_bouldin_score(X, labels)
-        return db_score, labels
+        # Calcular ambas metricas
+        db_score = davies_bouldin_score(X, labels)  # Menor = mejor
+        ch_score = calinski_harabasz_score(X, labels)  # Mayor = mejor
+        
+        return db_score, ch_score, labels
         
     except Exception as e:
-        return None, None
+        return None, None, None
 
 # ====================================================================
 # 4. EXPERIMENTO PRINCIPAL: BUSQUEDA DE LA MEJOR CONFIGURACION
 # ====================================================================
-# EXPERIMENTO PRINCIPAL: BUSQUEDA DE LA MEJOR CONFIGURACION
+
 print("INICIANDO EXPERIMENTO DE CLUSTERING...")
 print("Probando: 2-10 clusters x 3 metodos x 7 combinaciones de variables")
 
 resultados = []
-mejor_score_global = float('inf')
-mejor_configuracion = None
+mejor_score_db_global = float('inf')  # Para Davies-Bouldin (menor es mejor)
+mejor_score_ch_global = 0  # Para Calinski-Harabasz (mayor es mejor)
+mejor_configuracion_db = None
+mejor_configuracion_ch = None
 
 # Probar TODAS las combinaciones en orden normal
 for combo_name, variables in variable_combinations.items():
@@ -116,32 +120,47 @@ for combo_name, variables in variable_combinations.items():
         for n_clusters in range(2, 11):
             for metodo in ['kmeans', 'gaussian', 'hierarchical']:
                 
-                # Evaluar clustering
-                db_score, labels = evaluar_clustering(X_scaled, n_clusters, metodo)
+                # Evaluar clustering con ambas metricas
+                db_score, ch_score, labels = evaluar_clustering(X_scaled, n_clusters, metodo)
                 
-                if db_score is not None:
+                if db_score is not None and ch_score is not None:
                     resultados.append({
                         'combinacion': combo_name,
                         'n_clusters': n_clusters,
                         'metodo': metodo,
                         'db_score': db_score,
+                        'ch_score': ch_score,
                         'n_variables': len(variables),
                         'variables': str(variables)
                     })
                     
-                    # Actualizar mejor configuracion global
-                    if db_score < mejor_score_global:
-                        mejor_score_global = db_score
-                        mejor_configuracion = {
+                    # Actualizar mejor configuracion segun Davies-Bouldin
+                    if db_score < mejor_score_db_global:
+                        mejor_score_db_global = db_score
+                        mejor_configuracion_db = {
                             'combinacion': combo_name,
                             'n_clusters': n_clusters,
                             'metodo': metodo,
                             'db_score': db_score,
+                            'ch_score': ch_score,
                             'variables': variables,
                             'labels': labels
                         }
                     
-                    print(f"    {metodo:12} - {n_clusters} clusters: DB = {db_score:.4f}")
+                    # Actualizar mejor configuracion segun Calinski-Harabasz
+                    if ch_score > mejor_score_ch_global:
+                        mejor_score_ch_global = ch_score
+                        mejor_configuracion_ch = {
+                            'combinacion': combo_name,
+                            'n_clusters': n_clusters,
+                            'metodo': metodo,
+                            'db_score': db_score,
+                            'ch_score': ch_score,
+                            'variables': variables,
+                            'labels': labels
+                        }
+                    
+                    print(f"    {metodo:12} - {n_clusters} clusters: DB = {db_score:.4f} | CH = {ch_score:.1f}")
                     
     except Exception as e:
         print(f"Error con combinacion {combo_name}: {e}")
@@ -151,90 +170,141 @@ for combo_name, variables in variable_combinations.items():
 df_resultados = pd.DataFrame(resultados)
 
 # ====================================================================
-# 5. ANALISIS DE RESULTADOS
+# 5. ANALISIS DE RESULTADOS - COMPARATIVA DE METRICAS
 # ====================================================================
 
-print("RESULTADOS DEL EXPERIMENTO:")
+print("\n" + "="*70)
+print("RESULTADOS DEL EXPERIMENTO - COMPARATIVA DE METRICAS")
+print("="*70)
 print(f"Total de configuraciones probadas: {len(df_resultados)}")
 
 if len(df_resultados) == 0:
     print("ERROR: No se pudieron calcular resultados. Verifica los datos.")
     exit()
 
-# Resultados especificos de la configuracion especial
-resultados_especial = df_resultados[df_resultados['combinacion'] == 'combo7_config_especial']
-if len(resultados_especial) > 0:
-    print(f"\nRESULTADOS CONFIGURACION ESPECIAL:")
-    mejor_especial = resultados_especial.nsmallest(1, 'db_score').iloc[0]
-    print(f"Mejor resultado: {mejor_especial['metodo']} - {mejor_especial['n_clusters']} clusters")
-    print(f"Davies-Bouldin: {mejor_especial['db_score']:.4f}")
-
-# Top 10 mejores configuraciones
-top_10 = df_resultados.nsmallest(10, 'db_score')
-print("\nTOP 10 MEJORES CONFIGURACIONES (Davies-Bouldin):")
-for i, (idx, row) in enumerate(top_10.iterrows(), 1):
+# Top 10 mejores configuraciones segun cada metrica
+print("\n TOP 10 MEJORES CONFIGURACIONES SEGUN DAVIES-BOULDIN (menor = mejor):")
+top_10_db = df_resultados.nsmallest(10, 'db_score')
+for i, (idx, row) in enumerate(top_10_db.iterrows(), 1):
     marca_especial = " *" if row['combinacion'] == 'combo7_config_especial' else ""
     print(f"{i:2d}. {row['metodo']:12} - {row['n_clusters']} clusters - "
-          f"{row['combinacion']}{marca_especial} - DB: {row['db_score']:.4f}")
+          f"{row['combinacion']}{marca_especial} - DB: {row['db_score']:.4f} | CH: {row['ch_score']:.1f}")
 
-# Mejor configuracion global
-print("\nMEJOR CONFIGURACION GLOBAL:")
-print(f"Metodo: {mejor_configuracion['metodo']}")
-print(f"Clusters: {mejor_configuracion['n_clusters']}")
-print(f"Combinacion: {mejor_configuracion['combinacion']}")
-print(f"Variables: {mejor_configuracion['variables']}")
-print(f"Score Davies-Bouldin: {mejor_configuracion['db_score']:.4f}")
+print("\n TOP 10 MEJORES CONFIGURACIONES SEGUN CALINSKI-HARABASZ (mayor = mejor):")
+top_10_ch = df_resultados.nlargest(10, 'ch_score')
+for i, (idx, row) in enumerate(top_10_ch.iterrows(), 1):
+    marca_especial = " *" if row['combinacion'] == 'combo7_config_especial' else ""
+    print(f"{i:2d}. {row['metodo']:12} - {row['n_clusters']} clusters - "
+          f"{row['combinacion']}{marca_especial} - DB: {row['db_score']:.4f} | CH: {row['ch_score']:.1f}")
+
+# Mejores configuraciones globales
+print("\n" + "="*70)
+print("MEJORES CONFIGURACIONES GLOBALES:")
+print("="*70)
+
+print("\n  MEJOR CONFIGURACION SEGUN DAVIES-BOULDIN:")
+print(f"   Metodo: {mejor_configuracion_db['metodo']}")
+print(f"   Clusters: {mejor_configuracion_db['n_clusters']}")
+print(f"   Combinacion: {mejor_configuracion_db['combinacion']}")
+print(f"   Variables: {mejor_configuracion_db['variables']}")
+print(f"   Davies-Bouldin: {mejor_configuracion_db['db_score']:.4f}")
+print(f"   Calinski-Harabasz: {mejor_configuracion_db['ch_score']:.1f}")
+
+print("\n  MEJOR CONFIGURACION SEGUN CALINSKI-HARABASZ:")
+print(f"   Metodo: {mejor_configuracion_ch['metodo']}")
+print(f"   Clusters: {mejor_configuracion_ch['n_clusters']}")
+print(f"   Combinacion: {mejor_configuracion_ch['combinacion']}")
+print(f"   Variables: {mejor_configuracion_ch['variables']}")
+print(f"   Davies-Bouldin: {mejor_configuracion_ch['db_score']:.4f}")
+print(f"   Calinski-Harabasz: {mejor_configuracion_ch['ch_score']:.1f}")
+
+# Decidir cual usar (por defecto usamos la mejor segun Davies-Bouldin)
+print("\n" + "="*70)
+print("CONFIGURACION SELECCIONADA PARA APLICAR:")
+print("="*70)
+print("Se usara la mejor configuracion segun Davies-Bouldin")
+mejor_configuracion = mejor_configuracion_db
 
 # ====================================================================
-# 6. VISUALIZACIONES
+# 6. VISUALIZACIONES MEJORADAS
 # ====================================================================
 
-print("GENERANDO VISUALIZACIONES...")
+print("\nGENERANDO VISUALIZACIONES...")
 
-plt.figure(figsize=(15, 10))
+# Crear figura con mas subplots para ambas metricas
+fig, axes = plt.subplots(3, 2, figsize=(16, 18))
+fig.suptitle('COMPARATIVA DE METRICAS DE CLUSTERING', fontsize=16, fontweight='bold')
 
-# Subplot 1: Mejor metodo por numero de clusters
-plt.subplot(2, 2, 1)
+# Subplot 1: Evolucion de Davies-Bouldin por metodo
+ax1 = axes[0, 0]
 for metodo in ['kmeans', 'gaussian', 'hierarchical']:
     metodo_data = df_resultados[df_resultados['metodo'] == metodo]
     if len(metodo_data) > 0:
         avg_scores = metodo_data.groupby('n_clusters')['db_score'].mean()
-        plt.plot(avg_scores.index, avg_scores.values, marker='o', label=metodo, linewidth=2)
+        ax1.plot(avg_scores.index, avg_scores.values, marker='o', label=metodo, linewidth=2)
 
-plt.xlabel('Numero de Clusters')
-plt.ylabel('Davies-Bouldin Score')
-plt.title('Evolucion de Davies-Bouldin por Metodo')
-plt.legend()
-plt.grid(True, alpha=0.3)
+ax1.set_xlabel('Numero de Clusters')
+ax1.set_ylabel('Davies-Bouldin Score (menor = mejor)')
+ax1.set_title('Evolucion de Davies-Bouldin por Metodo')
+ax1.legend()
+ax1.grid(True, alpha=0.3)
 
-# Subplot 2: Mejores combinaciones de variables
-plt.subplot(2, 2, 2)
-combo_scores = df_resultados.groupby('combinacion')['db_score'].min().sort_values()
-combo_scores.plot(kind='bar', color='lightcoral')
-plt.title('Mejor Score por Combinacion de Variables')
-plt.ylabel('Mejor Davies-Bouldin Score')
-plt.xticks(rotation=45)
+# Subplot 2: Evolucion de Calinski-Harabasz por metodo
+ax2 = axes[0, 1]
+for metodo in ['kmeans', 'gaussian', 'hierarchical']:
+    metodo_data = df_resultados[df_resultados['metodo'] == metodo]
+    if len(metodo_data) > 0:
+        avg_scores = metodo_data.groupby('n_clusters')['ch_score'].mean()
+        ax2.plot(avg_scores.index, avg_scores.values, marker='o', label=metodo, linewidth=2)
 
-# Subplot 3: Comparacion de metodos
-plt.subplot(2, 2, 3)
-metodo_scores = df_resultados.groupby('metodo')['db_score'].min()
-metodo_scores.plot(kind='bar', color='lightgreen')
-plt.title('Mejor Score por Metodo de Clustering')
-plt.ylabel('Mejor Davies-Bouldin Score')
+ax2.set_xlabel('Numero de Clusters')
+ax2.set_ylabel('Calinski-Harabasz Score (mayor = mejor)')
+ax2.set_title('Evolucion de Calinski-Harabasz por Metodo')
+ax2.legend()
+ax2.grid(True, alpha=0.3)
 
-# Subplot 4: Resultados de configuracion especial
-plt.subplot(2, 2, 4)
-try:
-    heatmap_data = df_resultados.pivot_table(values='db_score', 
-                                           index='n_clusters', 
-                                           columns='metodo', 
-                                           aggfunc='mean')
-    sns.heatmap(heatmap_data, annot=True, cmap='viridis_r', fmt='.3f',
-                cbar_kws={'label': 'Davies-Bouldin Score'})
-    plt.title('Heatmap: Clusters vs Metodos\n')
-except:
-    plt.text(0.5, 0.5, 'No se pudo generar heatmap', 
-             ha='center', va='center', transform=plt.gca().transAxes)
+# Subplot 3: Mejores combinaciones de variables segun DB
+ax3 = axes[1, 0]
+combo_scores_db = df_resultados.groupby('combinacion')['db_score'].min().sort_values()
+combo_scores_db.plot(kind='bar', color='lightcoral', ax=ax3)
+ax3.set_title('Mejor Davies-Bouldin por Combinacion de Variables')
+ax3.set_ylabel('Mejor Davies-Bouldin Score')
+ax3.tick_params(axis='x', rotation=45)
+
+# Subplot 4: Mejores combinaciones de variables segun CH
+ax4 = axes[1, 1]
+combo_scores_ch = df_resultados.groupby('combinacion')['ch_score'].max().sort_values(ascending=False)
+combo_scores_ch.plot(kind='bar', color='lightblue', ax=ax4)
+ax4.set_title('Mejor Calinski-Harabasz por Combinacion de Variables')
+ax4.set_ylabel('Mejor Calinski-Harabasz Score')
+ax4.tick_params(axis='x', rotation=45)
+
+# Subplot 5: Comparacion de metodos para DB
+ax5 = axes[2, 0]
+metodos = df_resultados['metodo'].unique()
+x_pos = np.arange(len(metodos))
+width = 0.35
+
+db_means = df_resultados.groupby('metodo')['db_score'].min().values
+ch_means = df_resultados.groupby('metodo')['ch_score'].max().values
+
+bars1 = ax5.bar(x_pos - width/2, db_means, width, label='DB (menor mejor)', color='lightcoral')
+ax5.set_xlabel('Metodo')
+ax5.set_ylabel('Davies-Bouldin Score')
+ax5.set_title('Comparacion de Davies-Bouldin por Metodo')
+ax5.set_xticks(x_pos)
+ax5.set_xticklabels(metodos)
+ax5.legend()
+
+# Subplot 6: Comparacion de metodos para CH
+ax6 = axes[2, 1]
+bars2 = ax6.bar(x_pos - width/2, ch_means, width, label='CH (mayor mejor)', color='lightblue')
+ax6.set_xlabel('Metodo')
+ax6.set_ylabel('Calinski-Harabasz Score')
+ax6.set_title('Comparacion de Calinski-Harabasz por Metodo')
+ax6.set_xticks(x_pos)
+ax6.set_xticklabels(metodos)
+ax6.legend()
 
 plt.tight_layout()
 plt.show()
@@ -243,7 +313,7 @@ plt.show()
 # 7. APLICAR MEJOR CONFIGURACION AL DATASET COMPLETO
 # ====================================================================
 
-print("APLICANDO MEJOR CONFIGURACION AL DATASET...")
+print("\nAPLICANDO MEJOR CONFIGURACION AL DATASET...")
 
 # Preparar datos con la mejor combinacion de variables
 X_final = df_clean[mejor_configuracion['variables']].select_dtypes(include=[np.number])
@@ -268,7 +338,7 @@ df_final = df_clean.copy()
 df_final['mejor_cluster'] = labels_final
 
 # Mostrar caracteristicas de los clusters
-print("CARACTERISTICAS COMPLETAS DE LOS CLUSTERS:")
+print("\nCARACTERISTICAS COMPLETAS DE LOS CLUSTERS:")
 pd.set_option('display.max_columns', None)  # Mostrar TODAS las columnas
 cluster_analysis = df_final.groupby('mejor_cluster')[mejor_configuracion['variables']].mean()
 print(cluster_analysis)
@@ -278,18 +348,25 @@ print(cluster_analysis)
 # ====================================================================
 
 # Guardar dataset con clusters
-#df_final.to_csv('dataset_con_mejor_clustering.csv', index=False)
-df_resultados.to_csv('resultados_experimento_clustering.csv', index=False)
+nombre_archivo = f"dataset_clusters_{mejor_configuracion['metodo']}_{mejor_configuracion['n_clusters']}clusters.csv"
+df_final.to_csv(nombre_archivo, index=False)
 
+# Guardar resultados del experimento
+df_resultados.to_csv('resultados_experimento_completo.csv', index=False)
+
+print(f"\n" + "="*70)
 print("RESULTADOS GUARDADOS:")
-print("- Dataset con clusters: 'dataset_con_mejor_clustering.csv'")
-print("- Resultados del experimento: 'resultados_experimento_clustering.csv'")
+print("="*70)
+print(f"- Dataset con clusters: '{nombre_archivo}'")
+print(f"- Resultados del experimento: 'resultados_experimento_completo.csv'")
 
+print(f"\n" + "="*70)
 print("EXPERIMENTO COMPLETADO!")
-print("Mejor configuracion encontrada:")
+print("="*70)
+print(f"   - Configuracion utilizada (segun Davies-Bouldin):")
 print(f"   - Metodo: {mejor_configuracion['metodo']}")
 print(f"   - Clusters: {mejor_configuracion['n_clusters']}") 
 print(f"   - Combinacion: {mejor_configuracion['combinacion']}")
 print(f"   - Variables: {mejor_configuracion['variables']}")
 print(f"   - Davies-Bouldin: {mejor_configuracion['db_score']:.4f}")
-
+print(f"   - Calinski-Harabasz: {mejor_configuracion['ch_score']:.1f}")
