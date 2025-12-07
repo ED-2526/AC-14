@@ -6,13 +6,13 @@ from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
 
 # 1. Leer el dataset combinado
-df_combinado = pd.read_csv('dataset_combinado.csv')
+df_treballadors = pd.read_csv('treballadors_definitiu.csv')
 
 # 2. Filtrar solo los trabajadores de Estados Unidos (source = 2 y country = 'United States')
-df_trabajadores_usa = df_combinado[(df_combinado['source'] == 2) & (df_combinado['country'] == 'United States')]
+df_trabajadores_usa = df_treballadors[(df_treballadors['Country'] == 'United States')]
 
 # 3. Preprocesar: Eliminar columnas no relevantes y manejar valores nulos
-columnas_a_conservar = ['age', 'sex', 'self_employed', 'family_history', 'treatment', 'work_interfere', 
+columnas_a_conservar = ['Age', 'Gender', 'self_employed', 'family_history', 'treatment', 'work_interfere', 
                         'no_employees', 'remote_work', 'tech_company', 'benefits', 'care_options', 
                         'wellness_program', 'seek_help', 'anonymity', 'leave', 'mental_health_consequence', 
                         'phys_health_consequence', 'coworkers', 'supervisor', 'mental_health_interview', 

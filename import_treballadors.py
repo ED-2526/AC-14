@@ -10,6 +10,12 @@ print("Dataset de Treballadors carregat.")
 # 2. DEFINICIÓ DE LES FUNCIONS DE CODIFICACIÓ
 # ====================================================================
 df_treballadors = df_treballadors[df_treballadors['Age'] < 100].copy()
+
+# Eliminar columnes innecessàries
+df_treballadors = df_treballadors.drop(['Timestamp', 'comments'], axis=1)
+print("Columnes 'Timestamp' i 'comments' eliminades.")
+
+
 # Funció per codificar Gender. Mapeig desitjat:
 # 1: Mascle (Male)
 # 2: Dona (Female)
