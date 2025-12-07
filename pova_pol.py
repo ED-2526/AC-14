@@ -41,7 +41,7 @@ print(f"\nDades finals preparades (MinMax Scaling selectiva, 5 variables): {len(
 # 4. ENTRENAMENT DEL MODEL K-MEANS FINAL (K=4)
 # ====================================================================
 
-K = 4 
+K = 8 
 kmeans = KMeans(n_clusters=K, random_state=42, n_init=10)
 kmeans_clusters = kmeans.fit_predict(X_final_array)
 
