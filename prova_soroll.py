@@ -16,10 +16,11 @@ df_num = df.select_dtypes(include=[np.number])
 print("Columnes numèriques:", df_num.columns.tolist())
 print(df_num.head())
 
+
+
 # =============================
 # 2. ANALITZAR VALORS PERDUTS
 # =============================
-"""
 
 missing = df.isna().mean().sort_values(ascending=False)
 print("\nPercentatge de valors perduts per columna:")
@@ -63,7 +64,8 @@ plt.figure(figsize=(14,10))
 sns.heatmap(df_num.corr(), annot=False, cmap="coolwarm")
 plt.title("Matriz de correlacions (variables numèriques)")
 plt.show()
-"""
+
+
 # =============================
 # 5. IMPORTÀNCIA AMB RANDOM FOREST
 # =============================

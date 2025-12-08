@@ -29,7 +29,7 @@ def codificar_sexo(valor):
     # Male (1)
     # S'han netejat les llistes per evitar col·lisions
     male_keywords = ['male', 'm', 'man', 'cis male', 'cis man', 'male-ish', 'mail', 'mal', 'maile', 'make']
-    # Female (2)  
+    # Female (2)  
     female_keywords = ['female', 'f', 'woman', 'cis-female', 'femake', 'femail']
     # Trans/Non-binary (3)
     trans_keywords = ['trans', 'non-binary', 'nb', 'genderqueer', 'androgynous', 'agender', 'fluid', 'queer', 'other']
