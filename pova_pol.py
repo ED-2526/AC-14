@@ -2,226 +2,243 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.mixture import GaussianMixture
-# Canvi: Importem MinMaxScaler en lloc de StandardScaler
 from sklearn.preprocessing import MinMaxScaler
-from scipy.cluster.hierarchy import dendrogram, linkage
-from scipy.stats import mode # Per a la funció de GMM
+from sklearn.metrics import davies_bouldin_score, silhouette_score
+from sklearn.feature_selection import f_classif
+
 import warnings
 warnings.filterwarnings('ignore')
 
 plt.style.use('default')
 sns.set_palette("Set1")
 
+# ============================================================
+# 1. CARREGAR EL DATASET NETEJAT
+# ============================================================
+try:
+    df_treballadors = pd.read_csv('treballadors_definitiu.csv')
+    print("✅ Dataset de Treballadors definitiu carregat.")
+except FileNotFoundError:
+    print("❌ Error: No es troba 'treballadors_definitiu.csv'. Assegura't d'executar la preparació de dades.")
+    raise SystemExit
 
-df_treballadors = pd.read_csv('treballadors_definitiu.csv')
-print("Dataset de Treballadors definitiu carregat.")
-
-
+# ============================================================
 # 2. DEFINICIÓ DE VARIABLES I PREPARACIÓ
-# Regla: NO estandaritzar variables binàries (0 o 1).
+#    (AQUÍ ANIRÀS FENT PROVES DE QUINES VARIABLES INCLUIR)
+# ============================================================
 
-# Variables contínues/ordinals a escalar
-# PROVA #7: Mantenim les 5 millors variables
-variables_to_scale = ['Age', 'work_interfere', 'no_employees'] 
-# Variables binàries a utilitzar sense escalar
-variables_no_scale = ['treatment', 'mental_vs_physical'] 
+# Variables que considerem "contínues" o ordinals i volem escalar
+variables_to_scale = ['Age', 'work_interfere', 'no_employees']
 
-# Combinació utilitzada per a la Prova #7 (amb escalat selectiu, K=4, 5 variables)
+# Variables binàries/categòriques que deixem sense escalar
+variables_no_scale = ['treatment', 'mental_vs_physical']
+
+# Llista final de variables que entren al clustering
 variables_per_clustering = variables_to_scale + variables_no_scale
 
-# Eliminem NaNs per estar segurs (tot i que ja hauria d'estar net de la fase prèvia)
+# Subset de dades (eliminem files amb NaN a aquestes variables)
 X_original = df_treballadors[variables_per_clustering].copy().dropna()
 X = X_original.copy()
 
-# 3. APLICACIÓ DE L'ESCALAT SELECTIU (CANVIAT A MINMAXSCALER)
+print(f"\nVariables utilitzades per al clustering: {variables_per_clustering}")
+print(f"Nombre de registres (sense NaN en aquestes variables): {len(X)}")
 
-# Canvi clau: usem MinMaxScaler
-scaler_minmax = MinMaxScaler()
-X_scaled_parts = scaler_minmax.fit_transform(X[variables_to_scale])
+# ============================================================
+# 3. ESCALAT SELECTIU (NOMÉS PER A LES CONTÍNUES)
+# ============================================================
 
-# Unim les parts escalades amb les parts no escalades per obtenir la matriu final (X_final)
-X_scaled_df = pd.DataFrame(X_scaled_parts, columns=variables_to_scale, index=X.index)
-X_final = pd.concat([X_scaled_df, X[variables_no_scale]], axis=1)
+scaler = MinMaxScaler()
+X_scaled_cont = scaler.fit_transform(X[variables_to_scale])
 
-# Convertim X_final a numpy array per als algorismes
-X_final_array = X_final.values
-
-
-
-# ====================================================================
-# 4. APLICACIÓ I AVALUACIÓ DELS MODELS (K=4)
-
-
-K = 4 # Valor de K (prova colze)
-models_info = []
-
-# K-Means
-kmeans = KMeans(n_clusters=K, random_state=42, n_init=10)
-kmeans_clusters = kmeans.fit_predict(X_final_array)
-df_treballadors.loc[X_final.index, 'cluster_kmeans'] = kmeans_clusters.astype(int)
-models_info.append(('K-Means', kmeans_clusters, 'cluster_kmeans'))
-
-# Plot K-Means points
-plt.figure(figsize=(8, 6))
-
-# Fem servir les dues primeres columnes de X_final_array (Age i work_interfere escalats)
-plt.scatter(
-    X_final_array[:, 0],   # Age (escalat)
-    X_final_array[:, 1],   # work_interfere (escalat)
-    c=kmeans_clusters,     # color segons el cluster
-    alpha=0.8
+X_scaled_df = pd.DataFrame(
+    X_scaled_cont,
+    columns=variables_to_scale,
+    index=X.index
 )
 
-plt.xlabel('Age (escalat)')
-plt.ylabel('Work_interfere (escalat)')
-plt.title('K-Means (K=4) sobre treballadors')
-plt.colorbar(label='Cluster K-Means')
-plt.tight_layout()
-plt.show()
+# Combina variables escalades + variables sense escalar
+X_final = pd.concat([X_scaled_df, X[variables_no_scale]], axis=1)
+X_final_array = X_final.values
 
+print(f"\nDades finals preparades (MinMax per {len(variables_to_scale)} variables): {len(X_final)} registres.")
 
-# Gaussian Mixture Model (GMM)
+# ============================================================
+# 4. APLICACIÓ DE DIFERENTS MODELS DE CLUSTERING
+# ============================================================
+
+K = 8   # 👉 Canvia aquest valor per provar diferents nombres de clústers
+models_info = []
+
+# --- K-Means ---
+kmeans = KMeans(n_clusters=K, random_state=42, n_init=10)
+kmeans_labels = kmeans.fit_predict(X_final_array)
+df_treballadors.loc[X_final.index, 'cluster_kmeans'] = kmeans_labels.astype(int)
+models_info.append(('K-Means', kmeans_labels, 'cluster_kmeans'))
+
+# --- Gaussian Mixture Model (GMM) ---
 gmm = GaussianMixture(n_components=K, random_state=42)
-gmm.fit(X_final_array)
-gmm_clusters = gmm.predict(X_final_array)
-df_treballadors.loc[X_final.index, 'cluster_gmm'] = gmm_clusters.astype(int)
-models_info.append(('Gaussian Mixture', gmm_clusters, 'cluster_gmm'))
+gmm_labels = gmm.fit_predict(X_final_array)
+df_treballadors.loc[X_final.index, 'cluster_gmm'] = gmm_labels.astype(int)
+models_info.append(('Gaussian Mixture', gmm_labels, 'cluster_gmm'))
 
-# Clustering Jeràrquic (Agglomerative)
+# --- Clustering Jeràrquic (Agglomerative, Ward) ---
 hierarchical = AgglomerativeClustering(n_clusters=K, linkage='ward')
-hierarchical_clusters = hierarchical.fit_predict(X_final_array)
-df_treballadors.loc[X_final.index, 'cluster_hierarchical'] = hierarchical_clusters.astype(int)
-models_info.append(('Jeràrquic (Ward)', hierarchical_clusters, 'cluster_hierarchical'))
+hier_labels = hierarchical.fit_predict(X_final_array)
+df_treballadors.loc[X_final.index, 'cluster_hierarchical'] = hier_labels.astype(int)
+models_info.append(('Jeràrquic (Ward)', hier_labels, 'cluster_hierarchical'))
 
-print(f"\nModels aplicats per K={K}: K-Means, Gaussian Mixture, Clustering Jeràrquic")
+print(f"\n✅ Models aplicats per K={K}: K-Means, Gaussian Mixture, Clustering Jeràrquic")
 
-# Funció BSS/TSS
-def calcular_bss_tss(X, clusters, nom_model):
-    centroide_global = X.mean(axis=0)
-    TSS = np.sum(np.sum((X - centroide_global)**2, axis=1))
-    
-    BSS = 0
-    unique_clusters = np.unique(clusters)
-    
-    for cluster_id in unique_clusters:
-        cluster_points = X[clusters == cluster_id]
-        if len(cluster_points) > 0:
-            centroide_cluster = cluster_points.mean(axis=0)
-            BSS += len(cluster_points) * np.sum((centroide_cluster - centroide_global)**2)
-    
-    SSE = TSS - BSS
-    ratio_bss_tss = BSS / TSS if TSS > 0 else 0
-    
-    print(f"{nom_model}:")
-    print(f"  BSS: {BSS:.2f}")
-    print(f"  TSS: {TSS:.2f}")
-    print(f"  SSE: {SSE:.2f}")
-    print(f"  Ratio BSS/TSS: {ratio_bss_tss:.3f}")
-    print("")
-    
-    return BSS, TSS, SSE, ratio_bss_tss, nom_model
+# ============================================================
+# 5. MÈTRIQUES GLOBALS PER MODEL (DBS, BSS/TSS, SILHOUETTE)
+# ============================================================
 
-print("\nMETRIQUES D'AVALUACIO:")
-print("=" * 50)
+def calcular_bss_tss(X_np, clusters):
+    """
+    Retorna el ratio BSS/TSS (entre 0 i 1).
+    Com més a prop d'1, millor separació entre clústers.
+    """
+    centroide_global = X_np.mean(axis=0)
+    TSS = np.sum(np.sum((X_np - centroide_global) ** 2, axis=1))
+    BSS = 0.0
+    for c in np.unique(clusters):
+        points_c = X_np[clusters == c]
+        if len(points_c) == 0:
+            continue
+        centroide_c = points_c.mean(axis=0)
+        BSS += len(points_c) * np.sum((centroide_c - centroide_global) ** 2)
+    return BSS / TSS if TSS > 0 else np.nan
 
-results = []
-for nom, clusters, _ in models_info:
-    # ATENCIÓ: Tornem a calcular BSS/TSS utilitzant el nou X_final_array
-    bss, tss, sse, ratio, _ = calcular_bss_tss(X_final_array, clusters, nom)
-    results.append({'model': nom, 'sse': sse, 'ratio': ratio})
+print("\n================ MÈTRIQUES PER MODEL ================")
+for nom_model, labels, colname in models_info:
+    try:
+        dbs = davies_bouldin_score(X_final_array, labels)
+    except Exception:
+        dbs = np.nan
 
-# Extraure dades per als gràfics
-models = [r['model'] for r in results]
-sse_values = [r['sse'] for r in results]
-ratios = [r['ratio'] for r in results]
+    try:
+        sil = silhouette_score(X_final_array, labels)
+    except Exception:
+        sil = np.nan
 
-# ====================================================================
-# 5. VISUALITZACIÓ DELS RESULTATS
-# ====================================================================
+    ratio = calcular_bss_tss(X_final_array, labels)
 
-# PRIMERA FIGURA: GRÀFICS DE COMPARACIÓ DE MÈTRIQUES
-fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-fig.suptitle(f'COMPARACIÓ DE MODELS DE CLUSTERING (K={K}) ', fontsize=16, fontweight='bold')
+    print(f"\n{nom_model} (columna='{colname}'):")
+    print(f"  - Davies-Bouldin Score (↓ millor): {dbs:.3f}")
+    print(f"  - Silhouette Score (↑ millor):    {sil:.3f}")
+    print(f"  - BSS/TSS (↑ millor):            {ratio:.3f}")
+print("=====================================================\n")
 
-# Gráfico 1: SSE (Sum of Squared Errors)
-axes[0, 0].bar(models, sse_values, color=['#A60628', '#348AA7', '#7A68A6'])
-axes[0, 0].set_title('SSE (Sum of Squared Errors)')
-axes[0, 0].set_ylabel('SSE')
-for i, v in enumerate(sse_values):
-    axes[0, 0].text(i, v + 50, f'{v:.0f}', ha='center', va='bottom')
+# Per a la resta de l'anàlisi ens quedem amb K-Means com a model base
+cluster_col = 'cluster_kmeans'
+labels = kmeans_labels
 
-# Gráfico 2: Ratio BSS/TSS (Objectiu)
-bars_ratio = axes[0, 1].bar(models, ratios, color=['#A60628', '#348AA7', '#7A68A6'])
-axes[0, 1].set_title('Ratio BSS/TSS')
-axes[0, 1].set_ylabel('Ratio')
-axes[0, 1].set_ylim(0, 1)
-for bar, v in zip(bars_ratio, ratios):
-    axes[0, 1].text(bar.get_x() + bar.get_width()/2, v + 0.02, 
-                    f'{v:.3f}', ha='center', va='bottom', fontweight='bold')
-    axes[0, 1].text(bar.get_x() + bar.get_width()/2, v/2, 
-                    f'{v*100:.1f}%', ha='center', va='center', color='white', fontweight='bold')
+# ============================================================
+# 6. IMPORTÀNCIA DE VARIABLES (QUINES DIFERENCIEN MÉS ELS CLÚSTERS?)
+#    Usem F-test (ANOVA) respecte als clústers de K-Means
+# ============================================================
 
-# Gráfico 3: Distribución de clusters
-colors = sns.color_palette("Set1", n_colors=K)
-width = 0.25
-x_pos = np.arange(K)
+f_vals, p_vals = f_classif(X_final, labels)
+importancia = pd.DataFrame({
+    'variable': X_final.columns,
+    'F_value': f_vals,
+    'p_value': p_vals
+}).sort_values('p_value')
 
-for i, (nom, _, columna) in enumerate(models_info):
-    counts = df_treballadors[columna].value_counts().sort_index()
-    # Assegurem-nos que tenim dades per als K clústers
-    current_counts = [counts.get(c, 0) for c in x_pos]
-    bars = axes[1, 0].bar(x_pos + i*width, current_counts, width=width, 
-                         label=nom, alpha=0.8, color=colors[i])
+print("📊 IMPORTÀNCIA DE LES VARIABLES (respecte els clústers K-Means)")
+print(importancia.to_string(index=False))
 
-axes[1, 0].set_title('Distribució de Mida dels Clusters')
-axes[1, 0].set_xlabel('Cluster')
-axes[1, 0].set_ylabel('Nombre de Persones')
-axes[1, 0].set_xticks(x_pos + width)
-axes[1, 0].set_xticklabels([f'{c}' for c in x_pos])
-axes[1, 0].legend()
+print("""
+Interpretació ràpida:
+  - p_value petit (p < 0.05): la variable CANVIA bastant entre clústers → és rellevant.
+  - p_value gran      (p > 0.05): la variable gairebé no canvia entre clústers → potser poc significativa.
+""")
 
-# Gráfico 4: Tractament per cluster (Variable Clau)
-for i, (nom, _, columna) in enumerate(models_info):
-    treatment_rates = df_treballadors.groupby(columna)['treatment'].mean() * 100
-    current_rates = [treatment_rates.get(c, 0) for c in x_pos]
-    axes[1, 1].bar(x_pos + i * width, current_rates, width, label=nom, alpha=0.8, color=colors[i])
+# ============================================================
+# 7. RESUM NUMÈRIC PER CLÚSTER (K-MEANS)
+# ============================================================
 
-axes[1, 1].set_title('Taxa de Tractament per Cluster i Model')
-axes[1, 1].set_xlabel('Cluster')
-axes[1, 1].set_ylabel('Percentatge amb Tractament (%)')
-axes[1, 1].set_xticks(x_pos + width)
-axes[1, 1].set_xticklabels([f'{c}' for c in x_pos])
-axes[1, 1].legend(loc='upper right')
+# Dades originals + etiqueta de clúster
+df_cl = df_treballadors.loc[X_final.index, variables_per_clustering + [cluster_col]].copy()
 
-plt.tight_layout()
+cluster_summary = df_cl.groupby(cluster_col).agg(
+    Poblacio=('Age', 'size'),
+    Age_Mitjana=('Age', 'mean'),
+    Interferencia_Mitjana=('work_interfere', 'mean'),
+    Emp_Mitjana=('no_employees', 'mean'),
+    Percent_Tractament=('treatment', 'mean'),
+    Percent_Igualtat_MTL_PHY=('mental_vs_physical', 'mean')
+).reset_index()
+
+# Renombrem la columna de clúster perquè quedi maco als gràfics
+cluster_summary = cluster_summary.rename(columns={cluster_col: 'Cluster'})
+
+# Percentatges
+cluster_summary['Percent_Tractament'] = (cluster_summary['Percent_Tractament'] * 100).round(1)
+cluster_summary['Percent_Igualtat_MTL_PHY'] = (cluster_summary['Percent_Igualtat_MTL_PHY'] * 100).round(1)
+
+print("\nRESUM NUMÈRIC PER CLÚSTER (K-Means)")
+print("---------------------------------------")
+print(cluster_summary.to_string(index=False))
+print("\nNota:")
+print("  - 'Interferencia_Mitjana' (1 = Gairebé mai, 4 = Molta interferència).")
+print("  - 'Emp_Mitjana' (1 = Empresa petita, 6 = Empresa molt gran).")
+
+# ============================================================
+# 8. VISUALITZACIÓ PER INTERPRETAR ELS CLÚSTERS (K-MEANS)
+# ============================================================
+
+plt.figure(figsize=(18, 12))
+
+# Subplot 1: Impacte laboral (work_interfere)
+plt.subplot(2, 2, 1)
+sns.barplot(x='Cluster', y='Interferencia_Mitjana', data=cluster_summary, palette='viridis')
+plt.title("Grau d'interferència laboral (work_interfere) per clúster", fontsize=14)
+plt.ylabel('Mitjana (1 = Gairebé mai, 4 = Molta)')
+plt.ylim(0, cluster_summary['Interferencia_Mitjana'].max() * 1.2)
+for _, row in cluster_summary.iterrows():
+    plt.text(row.Cluster, row.Interferencia_Mitjana,
+             f"{row.Interferencia_Mitjana:.2f}",
+             ha="center", va="bottom", fontweight='bold')
+
+# Subplot 2: Percentatge amb tractament
+plt.subplot(2, 2, 2)
+sns.barplot(x='Cluster', y='Percent_Tractament', data=cluster_summary, palette='magma')
+plt.title('Percentatge de treballadors amb tractament per clúster', fontsize=14)
+plt.ylabel('Percentatge (%)')
+plt.ylim(0, 105)
+for _, row in cluster_summary.iterrows():
+    plt.text(row.Cluster, row.Percent_Tractament + 2,
+             f"{row.Percent_Tractament:.1f}%",
+             ha="center", va="bottom", fontweight='bold')
+
+# Subplot 3: Edat mitjana
+plt.subplot(2, 2, 3)
+sns.barplot(x='Cluster', y='Age_Mitjana', data=cluster_summary, palette='plasma')
+plt.title('Edat mitjana per clúster', fontsize=14)
+plt.ylabel('Anys')
+plt.ylim(0, cluster_summary['Age_Mitjana'].max() * 1.1)
+for _, row in cluster_summary.iterrows():
+    plt.text(row.Cluster, row.Age_Mitjana,
+             f"{row.Age_Mitjana:.1f}",
+             ha="center", va="bottom", fontweight='bold')
+
+# Subplot 4: Mida de l'empresa
+plt.subplot(2, 2, 4)
+sns.barplot(x='Cluster', y='Emp_Mitjana', data=cluster_summary, palette='cool')
+plt.title("Mida mitjana de l'empresa (no_employees) per clúster", fontsize=14)
+plt.ylabel('Mitjana (1 = Petita, 6 = Molt gran)')
+plt.ylim(0, cluster_summary['Emp_Mitjana'].max() * 1.2)
+for _, row in cluster_summary.iterrows():
+    plt.text(row.Cluster, row.Emp_Mitjana,
+             f"{row.Emp_Mitjana:.2f}",
+             ha="center", va="bottom", fontweight='bold')
+
+plt.suptitle(f'INTERPRETACIÓ DELS {K} CLÚSTERS (K-Means)', fontsize=16, fontweight='bold')
+plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 plt.show()
 
-# SEGONA FIGURA: Dendrograma (Només Jeràrquic)
-plt.figure(figsize=(12, 8))
-# Usem X_final_array (dades escalades selectivament)
-linked = linkage(X_final_array, 'ward')
-dendrogram(linked, orientation='top', distance_sort='descending', show_leaf_counts=True, truncate_mode='lastp', p=20)
-plt.title('Dendrograma - Clustering Jeràrquic (Prova #7, K=4)')
-plt.xlabel('Mostres')
-plt.ylabel('Distancia')
-plt.show()
-
-# 6. CONCLUSIÓ FINAL DE LA PROVA
-print("\n" + "=" * 50)
-print("RESULTATS DE LA PROVA D'OPTIMITZACIÓ")
-print("Variables: Age, work_interfere, no_employees (MINMAX SCALED) + treatment, mental_vs_physical (NO SCALED)")
-print("=" * 50)
-
-# Valor de referència de la Prova #6 (K=4, Standard Scaling, 5 variables)
-best_ratio_prev = 0.571 
-
-# Trobar el millor model d'aquesta prova
-best_ratio = max(ratios)
-best_model_index = ratios.index(best_ratio)
-best_model_name = models[best_model_index]
-
-print(f"MILLOR MODEL PER RATIO BSS/TSS (K={K}): {best_model_name}")
-print(f"RATIO OBTINGUDA: {best_ratio:.3f}")
-
+print("\nTorna a executar amb diferents K o diferents llistes de variables per anar provant configuracions.")
