@@ -1,102 +1,74 @@
 import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.impute import SimpleImputer
+import numpy as np
 from kmodes.kmodes import KModes
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-# ================================
+# ===========================
 # 1. Carregar dataset
-# ================================
-df = pd.read_csv('treballadors_definitiu.csv')
+# ===========================
+df = pd.read_csv("treballadors_definitiu.csv")
 
-# 2. Variables que farem servir per al clustering (categòriques)
-features = [
-    'work_interfere',
-    'family_history',
-    'no_employees',
-    'care_options',
-    'benefits',
-    'supervisor',
-    'treatment', 
-    'Age'
+# ===========================
+# 2. Variables que utilitzarem
+# ===========================
+vars_clustering = [
+    "work_interfere",
+    "family_history",
+    "no_employees",
+    "care_options",
+    "benefits",
+    "supervisor",
+    "treatment",
+    "remote_work",
+    "seek_help",
+    "wellness_program",
+    "Gender",
+    "phys_health_consequence",
+    "mental_health_consequence",
+    "tech_company"
 ]
 
-X = df[features].copy()
+df_cluster = df[vars_clustering].copy()
 
-print(f"Dataframe de clustering: {X.shape[0]} files, {X.shape[1]} columnes")
-print("Percentatge de NaN per columna:\n", X.isna().mean())
+# ===========================
+# 3. Tractar valors NaN
+# ===========================
+df_cluster = df_cluster.fillna("Unknown")
 
-# ================================
-# 2. Imputar valors perduts
-#   -> com que són categories, usem el valor més freqüent
-# ================================
-imputer = SimpleImputer(strategy='most_frequent')
-X_imputed = imputer.fit_transform(X)
+# Convertir tot a string (K-Modes ho requereix)
+df_cluster = df_cluster.astype(str)
 
-# Convertim a strings perquè KModes tracti tot com a categories
-X_cat = X_imputed.astype(str)
-"""
-# ================================
-# 3. “Mètode del codo” per K-Modes
-#    (usem el cost del model com a analog a la inèrcia)
-# ================================
-costs = []
-K = range(2, 11)
+print("Dataframe final per clustering:", df_cluster.shape)
 
-for k in K:
-    km = KModes(n_clusters=k, init='Huang', n_init=5, verbose=0, random_state=42)
-    km.fit(X_cat)
-    costs.append(km.cost_)
-    print(f"k={k}, cost={km.cost_}")
+# ===========================
+# 4. Aplicar K-Modes
+# ===========================
+k = 5  # pots variar-ho després
+km = KModes(n_clusters=k, init="Huang", n_init=10, verbose=1)
+clusters = km.fit_predict(df_cluster)
 
-plt.figure(figsize=(8, 6))
-plt.plot(K, costs, marker='o')
-plt.title('Mètode del codo per K-Modes')
-plt.xlabel('Nombre de clusters (k)')
-plt.ylabel('Cost (KModes.cost_)')
-plt.xticks(K)
-plt.grid(True)
-plt.show()
-"""
-# Després de mirar el gràfic, tria el k òptim:
-k_opt = 5  # <-- CANVIA A MÀ segons el codo que vegis
-
-# ================================
-# 4. Clustering final amb K-Modes
-# ================================
-km_final = KModes(n_clusters=k_opt, init='Huang', n_init=10, verbose=0, random_state=42)
-clusters = km_final.fit_predict(X_cat)
-
-df['cluster'] = clusters
+df_cluster["cluster"] = clusters
 
 print("\nMida de cada cluster:")
-print(df['cluster'].value_counts())
+print(df_cluster["cluster"].value_counts())
 
-# ================================
-# 5. “Perfil” de cada cluster (moda de cada variable)
-# ================================
-def moda(s):
-    return s.value_counts().idxmax()
+# ===========================
+# 5. Calcular perfil (mode per cluster)
+# ===========================
+perfil_clusters = df_cluster.groupby("cluster").agg(lambda x: x.mode()[0])
+print("\nPerfils de clusters:")
+print(perfil_clusters)
 
-cluster_profiles = df.groupby('cluster')[features].agg(moda)
-print("\nPerfil categòric de cada cluster (moda per variable):")
-print(cluster_profiles)
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# Convertir els valors categòrics (strings) a números per poder fer el heatmap
-cluster_numeric = cluster_profiles.copy()
-
-for col in cluster_numeric.columns:
-    try:
-        cluster_numeric[col] = cluster_numeric[col].astype(float)
-    except:
-        pass
-
-plt.figure(figsize=(10, 6))
-sns.heatmap(cluster_numeric, annot=True, cmap='Spectral', linewidths=0.5)
-plt.title("Heatmap de perfils dels clusters (K-Modes)", fontsize=14)
-plt.xlabel("Variables", fontsize=12)
-plt.ylabel("Cluster", fontsize=12)
-plt.tight_layout()
+# ===========================
+# 6. Heatmap dels perfils
+# ===========================
+plt.figure(figsize=(14,8))
+sns.heatmap(
+    perfil_clusters.replace("Unknown", np.nan).astype(float),
+    cmap="Spectral",
+    annot=True,
+    fmt=".2f"
+)
+plt.title("Heatmap de perfils dels clusters (K-Modes)")
 plt.show()
