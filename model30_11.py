@@ -43,9 +43,9 @@ df_scaled = pd.DataFrame(scaler.fit_transform(df_imputed), columns=df.columns)
 
 
 # ==============================
-# 6. K-MEANS (3 CLÚSTERS o els que vulguis)
+# 6. K-MEANS 
 # ==============================
-kmeans = KMeans(n_clusters=4, random_state=42)
+kmeans = KMeans(n_clusters=10, random_state=42)
 df_scaled["cluster"] = kmeans.fit_predict(df_scaled)
 
 
@@ -64,14 +64,13 @@ df_scaled["PC2"] = pca_coords[:, 1]
 # ==============================
 plt.figure(figsize=(10, 7))
 scatter = plt.scatter(df_scaled["PC1"], df_scaled["PC2"],
-                      c=df_scaled["cluster"], cmap="viridis", alpha=0.7)
+                      c=df_scaled["cluster"], cmap="tab10", alpha=0.7)
 
 plt.title("Clustering Treballadors — Totes les variables (PCA)")
 plt.xlabel("PC1")
 plt.ylabel("PC2")
 plt.colorbar(scatter, label="Cluster")
 plt.show()
-
 
 # ==============================
 # 9. PLOT PCA — COLOR PER TREATMENT (assistència psicològica)

@@ -1,80 +1,74 @@
 import pandas as pd
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
-import matplotlib.pyplot as plt
+import numpy as np
+from kmodes.kmodes import KModes
 import seaborn as sns
-from sklearn.preprocessing import LabelEncoder
-from sklearn.impute import SimpleImputer
+import matplotlib.pyplot as plt
 
-# Cargar el dataset combinado
-df_combinat = pd.read_csv('dataset_combinado.csv')
+# ===========================
+# 1. Carregar dataset
+# ===========================
+df = pd.read_csv("treballadors_definitiu.csv")
 
-# Eliminar la columna Timestamp que contiene fechas
-df_combinat = df_combinat.drop(columns=['Timestamp'])
+# ===========================
+# 2. Variables que utilitzarem
+# ===========================
+vars_clustering = [
+    "work_interfere",
+    "family_history",
+    "no_employees",
+    "care_options",
+    "benefits",
+    "supervisor",
+    "treatment",
+    "remote_work",
+    "seek_help",
+    "wellness_program",
+    "Gender",
+    "phys_health_consequence",
+    "mental_health_consequence",
+    "tech_company"
+]
 
-# Eliminar las columnas no necesarias para el clustering
-df_clustering = df_combinat.drop(columns=['id', 'source', 'comments'])
+df_cluster = df[vars_clustering].copy()
 
-# Eliminar solo las filas con valores nulos en las columnas críticas (por ejemplo, 'age' y 'sex')
-df_clustering = df_clustering.dropna(subset=['age', 'sex'])
+# ===========================
+# 3. Tractar valors NaN
+# ===========================
+df_cluster = df_cluster.fillna("Unknown")
 
-# Codificar la columna 'Country' usando LabelEncoder
-label_encoder = LabelEncoder()
-df_combinat['country'] = label_encoder.fit_transform(df_combinat['country'])
+# Convertir tot a string (K-Modes ho requereix)
+df_cluster = df_cluster.astype(str)
 
-# Eliminar la columna 'state' y 'comments' si no son necesarias
-df_clustering = df_combinat.drop(columns=['state', 'comments'])
+print("Dataframe final per clustering:", df_cluster.shape)
 
-# Verificar si el dataframe tiene filas
-print(f"El dataframe tiene {df_clustering.shape[0]} filas y {df_clustering.shape[1]} columnas.")
+# ===========================
+# 4. Aplicar K-Modes
+# ===========================
+k = 5  # pots variar-ho després
+km = KModes(n_clusters=k, init="Huang", n_init=10, verbose=1)
+clusters = km.fit_predict(df_cluster)
 
-# Si hay valores NaN, se rellenan con la media (puedes usar la mediana si prefieres)
-imputer = SimpleImputer(strategy='mean')
-df_clustering = pd.DataFrame(imputer.fit_transform(df_clustering), columns=df_clustering.columns)
+df_cluster["cluster"] = clusters
 
-# Verificar si los NaN han sido eliminados
-print(f"Valores nulos después de imputar: {df_clustering.isnull().sum()}")
+print("\nMida de cada cluster:")
+print(df_cluster["cluster"].value_counts())
 
-# Escalar los datos (escalado de las variables para que todas tengan la misma importancia)
-scaler = StandardScaler()
-df_scaled = scaler.fit_transform(df_clustering)
+# ===========================
+# 5. Calcular perfil (mode per cluster)
+# ===========================
+perfil_clusters = df_cluster.groupby("cluster").agg(lambda x: x.mode()[0])
+print("\nPerfils de clusters:")
+print(perfil_clusters)
 
-# 1. Determinar el número óptimo de clusters usando el método del codo
-inertia = []
-for k in range(1, 11):
-    kmeans = KMeans(n_clusters=k, random_state=42)
-    kmeans.fit(df_scaled)
-    inertia.append(kmeans.inertia_)
-
-# Visualizar el gráfico del codo
-plt.figure(figsize=(8,6))
-plt.plot(range(1, 11), inertia, marker='o')
-plt.title('Método del Codo para Determinar el Número de Clusters')
-plt.xlabel('Número de Clusters')
-plt.ylabel('Inercia')
+# ===========================
+# 6. Heatmap dels perfils
+# ===========================
+plt.figure(figsize=(14,8))
+sns.heatmap(
+    perfil_clusters.replace("Unknown", np.nan).astype(float),
+    cmap="Spectral",
+    annot=True,
+    fmt=".2f"
+)
+plt.title("Heatmap de perfils dels clusters (K-Modes)")
 plt.show()
-
-"""
-
-
-# 2. Aplicar K-means con el número de clusters seleccionado
-kmeans = KMeans(n_clusters=3, random_state=42)
-df_combinat['cluster'] = kmeans.fit_predict(df_scaled)
-
-# 3. Analizar los resultados
-# Mostrar el número de muestras en cada cluster
-print(df_combinat['cluster'].value_counts())
-
-# Visualizar los clusters usando dos de las características (por ejemplo, 'age' y 'sex')
-plt.figure(figsize=(10,6))
-sns.scatterplot(x=df_combinat['age'], y=df_combinat['sex'], hue=df_combinat['cluster'], palette='Set2', s=100, alpha=0.7)
-plt.title('Distribución de Clusters por Edad y Sexo')
-plt.xlabel('Edad')
-plt.ylabel('Sexo')
-plt.legend(title='Cluster')
-plt.show()
-
-# 4. Ver las características promedio de cada cluster
-cluster_means = df_combinat.groupby('cluster').mean()
-print(cluster_means)
-"""
