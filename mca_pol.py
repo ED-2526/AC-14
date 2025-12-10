@@ -13,10 +13,14 @@ sns.set(style="whitegrid")
 df = pd.read_csv("treballadors_definitiu.csv")
 
 vars_mca = [
-    "work_interfere", "family_history", "no_employees", "care_options",
-    "benefits", "supervisor", "treatment", "remote_work", "seek_help",
-    "wellness_program", "Gender", "phys_health_consequence",
-    "mental_health_consequence", "tech_company"
+    "Gender",
+    "self_employed",
+    "tech_company",
+    "remote_work",
+    "no_employees",
+    "treatment",
+    "family_history",
+    "obs_consequence",
 ]
 
 df_mca = df[vars_mca].copy().fillna("Unknown").astype(str)
@@ -60,7 +64,7 @@ print(var_contrib)
 # ===========================
 # 2c. Escollir TOP variables
 # ===========================
-TOP_N = 6
+TOP_N = 7
 top_vars = var_contrib.head(TOP_N).index.tolist()
 
 print(f"\nTOP {TOP_N} variables segons MCA:")
