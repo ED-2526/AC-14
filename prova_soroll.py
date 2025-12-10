@@ -28,6 +28,7 @@ missing.plot(kind='bar')
 plt.title("Percentatge de NaN per variable")
 plt.tight_layout()
 plt.show()
+"""
 
 # =============================
 # 3. FREQÜÈNCIA DEL VALOR MÉS COMÚ (NOMÉS NUMÈRIQUES)
@@ -48,6 +49,7 @@ freq_ratio.plot(kind='bar')
 plt.title("Proporció del valor més freqüent per variable")
 plt.tight_layout()
 plt.show()
+"""
 
 # =============================
 # 4. VARIÀNCIA DE CADA VARIABLE (NOMÉS NUMÈRIQUES)
@@ -62,6 +64,7 @@ plt.title("Variància de cada variable numèrica")
 plt.tight_layout()
 plt.show()
 
+"""
 # =============================
 # 5. CORRELACIÓ ENTRE VARIABLES NUMÈRIQUES
 # =============================
@@ -93,3 +96,4 @@ plt.title("PCA - Variància explicada acumulada")
 plt.grid(True)
 plt.tight_layout()
 plt.show()
+"""
