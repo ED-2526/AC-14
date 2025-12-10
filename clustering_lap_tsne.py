@@ -98,7 +98,7 @@ print(df_scores)
 # ================================
 #     3) TRIEM LES TOP K VARIABLES
 # ================================
-TOP_K = 7  # canvia-ho fàcilment si vols 5, 6...
+TOP_K = 6  # canvia-ho fàcilment si vols 5, 6...
 top_vars = df_scores["variable"].head(TOP_K).tolist()
 print(f"\nTOP {TOP_K} variables seleccionades:", top_vars)
 
@@ -159,7 +159,7 @@ plt.show()
 
 # Pots mirar df_metrics i les gràfiques i triar el K que et sembli millor.
 # Per exemple, si decideixes K = 8:
-K_OPT = 8  # <-- ajusta aquest valor segons les mètriques
+K_OPT = 6  # <-- ajusta aquest valor segons les mètriques
 
 
 # ================================
@@ -242,18 +242,18 @@ def assignar_cluster(nou_registre: dict):
 
 
 # Exemple d'ús (comenta-ho o adapta-ho al teu cas):
-"""
+
+
 nou = {
-    "Age": 30,
+    "family_history": 1,
     "Gender": 1,
-    "self_employed": 2,
     "tech_company": 1,
     "remote_work": 0,
-    "no_employees": 3,
+    "obs_consequence": 1,
     "treatment": 0,
 }
 cluster_id, perfil = assignar_cluster(nou)
 print("Nou individu assignat al clúster:", cluster_id)
 print("Perfil mitjà del clúster:")
 print(perfil)
-"""
+
