@@ -69,7 +69,9 @@ cols = [
     "obs_consequence",
 ]
 
-X_lap = df[cols].dropna()  # quasi no perds dades
+X_lap = df[cols].dropna()  
+
+
 X_lap_scaled = MinMaxScaler().fit_transform(X_lap.values)
 
 scores = laplacian_score(X_lap_scaled)
