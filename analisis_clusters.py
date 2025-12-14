@@ -1,103 +1,157 @@
+# ============================================
+# CONFIGURACIÓ NO INTERACTIVA (IMPORTANT)
+# ============================================
+import matplotlib
+matplotlib.use("Agg")  # evita bloquejos de plt.show()
+
+# ============================================
+# IMPORTS
+# ============================================
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import euclidean_distances
-import seaborn as sns
+from sklearn.manifold import TSNE
 
-# ============================
-# 1. Carregar el dataset
-# ============================
+# ============================================
+# 1. CARREGAR DADES
+# ============================================
 df = pd.read_csv("treballadors_definitiu.csv")
 
-# Variables seleccionades prèviament (sense NaNs i sense soroll)
+# Variables seleccionades via Laplacian Score (TOP 6)
 vars_selected = [
-    "Age", 
-    "Gender", 
-    "self_employed", 
-    "tech_company", 
-    "remote_work", 
-    "no_employees", 
-    "treatment", 
-    "family_history", 
-    "obs_consequence"
+    "family_history",
+    "treatment",
+    "remote_work",
+    "Gender",
+    "tech_company",
+    "obs_consequence",
 ]
 
-# Filtrant les variables seleccionades
-df_selected = df[vars_selected].dropna()  # eliminant les files amb NaNs
+df_sel = df[vars_selected].dropna().copy()
 
-# ============================
-# 2. Escalar les dades
-# ============================
+# ============================================
+# 2. ESCALAT
+# ============================================
 scaler = MinMaxScaler()
-X_scaled = scaler.fit_transform(df_selected.values)
+X = scaler.fit_transform(df_sel.values)
 
-# ============================
-# 3. Aplicar K-Means
-# ============================
-kmeans = KMeans(n_clusters=6, random_state=42, n_init="auto")
-labels = kmeans.fit_predict(X_scaled)
+# ============================================
+# 3. K-MEANS FINAL (K = 6)
+# ============================================
+K = 6
+kmeans = KMeans(n_clusters=K, random_state=42, n_init="auto")
+labels = kmeans.fit_predict(X)
 
-# Afegim les etiquetes de clúster a les dades
-df_selected["cluster"] = labels
+df_sel["cluster"] = labels
 
-# ============================
-# 4. Càlcul de la distància de cada punt al seu centroid
-# ============================
+# ============================================
+# 4. DISTÀNCIA AL CENTROID
+# ============================================
 centroids = kmeans.cluster_centers_
+distances = euclidean_distances(X, centroids)
+df_sel["dist_to_centroid"] = distances[np.arange(len(distances)), labels]
 
-# Calcular distàncies de cada punt respecte al seu centroid
-distances = euclidean_distances(X_scaled, centroids)
+# Percentil 75 per definir "perifèrics"
+threshold = df_sel["dist_to_centroid"].quantile(0.75)
+df_sel["posicio"] = np.where(
+    df_sel["dist_to_centroid"] > threshold,
+    "periferic",
+    "central",
+)
 
-# Afegim la distància al centroid per cada treballador
-df_selected["dist_to_centroid"] = distances[np.arange(len(distances)), labels]
-
-# ============================
-# 5. Visualització de la distància al centroid per clúster
-# ============================
-plt.figure(figsize=(12, 6))
-sns.boxplot(x="cluster", y="dist_to_centroid", data=df_selected)
+# ============================================
+# 5. BOXPLOT DISTÀNCIA AL CENTROID (CLÚSTERS)
+# ============================================
+plt.figure(figsize=(10, 6))
+sns.boxplot(x="cluster", y="dist_to_centroid", data=df_sel)
 plt.title("Distribució de la distància al centroid per clúster")
 plt.xlabel("Clúster")
 plt.ylabel("Distància al centroid")
-plt.show()
+plt.tight_layout()
+plt.savefig("01_distancia_centroid_clusters.png", dpi=200)
+plt.close()
 
-# ============================
-# 6. Anàlisi detallada de les variables per clúster
-# ============================
+# ============================================
+# 6. t-SNE (CENTRALS vs PERIFÈRICS)
+# ============================================
+tsne = TSNE(
+    n_components=2,
+    perplexity=30,
+    learning_rate=200,
+    max_iter=1500,
+    random_state=42,
+)
+
+embedding = tsne.fit_transform(X)
+df_sel["TSNE1"] = embedding[:, 0]
+df_sel["TSNE2"] = embedding[:, 1]
+
+plt.figure(figsize=(10, 7))
+sns.scatterplot(
+    data=df_sel,
+    x="TSNE1",
+    y="TSNE2",
+    hue="cluster",
+    style="posicio",
+    palette="tab10",
+    alpha=0.8,
+)
+plt.title("t-SNE amb KMeans (centrals vs perifèrics)")
+plt.tight_layout()
+plt.savefig("02_tsne_centrals_periferics.png", dpi=200)
+plt.close()
+
+# ============================================
+# 7. VARIABLES QUE EXPLIQUEN SER PERIFÈRIC
+#    (comparació centrals vs perifèrics)
+# ============================================
+summary = []
+
 for var in vars_selected:
-    plt.figure(figsize=(12, 6))
-    sns.boxplot(x="cluster", y=var, data=df_selected)
-    plt.title(f"Distribució de {var} per clúster")
-    plt.xlabel("Clúster")
-    plt.ylabel(var)
-    plt.show()
+    mean_central = df_sel[df_sel["posicio"] == "central"][var].mean()
+    mean_periferic = df_sel[df_sel["posicio"] == "periferic"][var].mean()
 
-# ============================
-# 7. Anàlisi de les distàncies per cada clúster
-# ============================
-# Aquí veurem la mitjana de distància per clúster i per variable.
-cluster_distances = df_selected.groupby("cluster")["dist_to_centroid"].mean().reset_index()
+    summary.append(
+        {
+            "variable": var,
+            "mitjana_central": round(mean_central, 3),
+            "mitjana_periferic": round(mean_periferic, 3),
+            "diferencia": round(mean_periferic - mean_central, 3),
+        }
+    )
 
-print("Distància mitjana al centroid per clúster:")
-print(cluster_distances)
+df_summary = pd.DataFrame(summary).sort_values(
+    "diferencia", key=abs, ascending=False
+)
 
-# ============================
-# 8. Anàlisi per variables
-# Aquí calculem quines variables tenen més pes en les distàncies
-# i quines distàncies poden afectar més a l'assignació de clúster
-# ============================
-correlation_matrix = df_selected[vars_selected + ["dist_to_centroid"]].corr()
-plt.figure(figsize=(12, 8))
-sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", fmt=".2f")
-plt.title("Correlació entre variables i distància al centroid")
-plt.show()
+df_summary.to_csv("03_variables_periferia.csv", index=False)
 
-# ============================
-# 9. Identificar treballadors que estan "fora de lloc"
-# Si la distància al centroid és molt alta, aquests treballadors podrien ser interessants per estudiar
-# ============================
-outliers = df_selected[df_selected["dist_to_centroid"] > df_selected["dist_to_centroid"].quantile(0.75)]
-print("\nTreballadors amb distància més alta al centroid (fora de lloc):")
-print(outliers)
+# ============================================
+# 8. BOXPLOTS PER VARIABLE (CLÚSTER x POSICIÓ)
+# ============================================
+for var in vars_selected:
+    plt.figure(figsize=(10, 6))
+    sns.boxplot(
+        data=df_sel,
+        x="cluster",
+        y=var,
+        hue="posicio",
+    )
+    plt.title(f"{var} — diferències entre centrals i perifèrics")
+    plt.tight_layout()
+    plt.savefig(f"04_{var}_central_vs_periferic.png", dpi=200)
+    plt.close()
+
+# ============================================
+# 9. RESUM FINAL PER PANTALLA
+# ============================================
+print("\n===== DISTRIBUCIÓ CENTRALS / PERIFÈRICS =====")
+print(df_sel["posicio"].value_counts())
+
+print("\n===== VARIABLES QUE MÉS EXPLIQUEN LA PERIFÈRIA =====")
+print(df_summary)
