@@ -1,0 +1,7 @@
+variable,mitjana_central,mitjana_periferic,diferencia
+obs_consequence,0.025,0.531,0.506
+Gender,0.1,0.545,0.444
+tech_company,0.884,0.606,-0.278
+remote_work,0.269,0.39,0.121
+treatment,0.494,0.531,0.037
+family_history,0.384,0.404,0.02
