@@ -198,4 +198,3 @@ plt.show()
 cluster_profiles = df_top.groupby("cluster")[top_vars].mean().round(3)
 
 print(f"\n===== Perfil mitjà de cada clúster (TOP {TOP_K} variables) =====")
-print(cluster_profiles)

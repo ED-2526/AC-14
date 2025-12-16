@@ -204,58 +204,132 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
-# ================================
-#     7) PERFIL MITJÀ DE CADA CLÚSTER
-# ================================
+# =======================================================
+# 1) PERFIL MITJÀ COMPARAT PER CLÚSTER
+# =======================================================
+print("\n===== Perfil mitjà de cada clúster =====")
 cluster_profiles = df_top.groupby("cluster")[top_vars].mean().round(3)
-
-print(f"\n===== Perfil mitjà de cada clúster (TOP {TOP_K} variables) =====")
 print(cluster_profiles)
 
+# =======================================================
+# 2) DISTÀNCIA DE CADA PUNT ALS CENTROIDS
+# =======================================================
+centroids = kmeans_final.cluster_centers_
 
-# ================================
-#     8) FUNCIÓ PER CLASSIFICAR NOUS INDIVIDUS
-# ================================
-def assignar_cluster(nou_registre: dict):
+# funció per calcular distàncies per variable
+def contribucio_distances_per_var(X_escalat, centroids, top_vars):
     """
-    Rep un diccionari amb les mateixes claus que 'top_vars'
-    (per ex. {"Age": 30, "Gender": 1, ...}) i retorna:
-
-      - cluster assignat (int)
-      - el perfil mitjà d'aquest clúster (Series)
+    Retorna per cada punt:
+      - distància a cada centroid
+      - contribució de cada variable a la distància al seu centroid assignat
     """
+    distancias = np.linalg.norm(X_escalat[:, None, :] - centroids[None, :, :], axis=2)
 
-    # Convertim a DataFrame amb una sola fila
-    df_new = pd.DataFrame([nou_registre])
+    contrib_var = []
+    for i, point in enumerate(X_escalat):
+        cluster_assigned = df_top["cluster"].iloc[i]
+        centroid_assigned = centroids[cluster_assigned]
+        # contribució per variable de la distància
+        contrib = (point - centroid_assigned) ** 2
+        contrib_var.append(contrib)
 
-    # Assegurem l'ordre de les columnes
-    df_new = df_new[top_vars]
+    contrib_var = np.array(contrib_var)
+    return distancias, contrib_var
 
-    # Apliquem el mateix escalat que a l'entrenament
+distances, contrib_vars = contribucio_distances_per_var(X, centroids, top_vars)
+
+# Afegir distàncies al dataframe
+df_top["dist_to_centroid"] = distances[np.arange(len(distances)), df_top["cluster"]]
+
+print("\n===== exemples de distàncies per observació =====")
+print(df_top[["cluster", "dist_to_centroid"]].head())
+
+# =======================================================
+# 3) IMPORTÀNCIA RELATIVA DE LES VARIABLES PER CLÚSTER
+# =======================================================
+centroids_df = pd.DataFrame(centroids, columns=top_vars)
+
+# variància entre centroids per cada variable
+var_between_centroids = centroids_df.std(axis=0).sort_values(ascending=False)
+
+print("\n===== Variables amb més variància entre centroids =====")
+print(var_between_centroids)
+
+# =======================================================
+# 4) COMPARACIÓ DE CADA CLÚSTER RESPECTE LA MITJANA GLOBAL
+# =======================================================
+global_mean = df_top[top_vars].mean()
+delta_per_cluster = (cluster_profiles - global_mean).abs().round(3)
+
+print("\n===== Diferències de cada clúster respecte la mitjana global =====")
+print(delta_per_cluster)
+
+# =======================================================
+# 5) FUNCIÓ PER ANALITZAR UN NOU REGISTRE
+# =======================================================
+def analitzar_registre(nou_registre_dict):
+    """
+    Rep un diccionari amb mateixes claus que 'top_vars'.
+    Retorna:
+      - cluster assignat
+      - distància a cada centroid
+      - contribució de variables que apropen / allunyen del centroid
+      - perfil mitjà del cluster assignat
+    """
+    # 1) convertir a DataFrame
+    df_new = pd.DataFrame([nou_registre_dict])
+    df_new = df_new[top_vars]  # assegurar l'ordre de variables
+
+    # 2) escalar
     X_new = scaler.transform(df_new.values)
 
-    # Prediem el clúster amb el KMeans entrenat
+    # 3) predir cluster
     cluster_pred = int(kmeans_final.predict(X_new)[0])
 
-    # Recuperem el perfil mitjà d'aquest clúster
-    perfil_cluster = cluster_profiles.loc[cluster_pred]
+    # 4) distàncies a tots els centroids
+    dists_to_centroids = np.linalg.norm(X_new - centroids, axis=1)
 
-    return cluster_pred, perfil_cluster
+    # 5) contribució per variables al cluster assignat
+    centroid_assigned = centroids[cluster_pred]
+    contrib_new = (X_new[0] - centroid_assigned) ** 2
+    contrib_series = pd.Series(contrib_new, index=top_vars).sort_values(ascending=False)
 
+    # 6) perfil mitjà del cluster assignat
+    profile_assigned = cluster_profiles.loc[cluster_pred]
 
-# Exemple d'ús (comenta-ho o adapta-ho al teu cas):
+    result = {
+        "cluster_assigned": cluster_pred,
+        "dists_to_centroids": dists_to_centroids,
+        "variable_contributions": contrib_series,
+        "profile_assigned": profile_assigned,
+    }
+    return result
 
-
+# Exemple d'ús:
 nou = {
-    "family_history": 1,
-    "Gender": 1,
-    "tech_company": 1,
-    "remote_work": 0,
-    "obs_consequence": 1,
-    "treatment": 0,
+    'family_history': 1,
+    'Gender': 1,
+    'self_employed': 0,
+    'tech_company': 1,
+    'remote_work': 1,
+    'treatment': 1,
+    'obs_consequence': 0,
 }
-cluster_id, perfil = assignar_cluster(nou)
-print("Nou individu assignat al clúster:", cluster_id)
-print("Perfil mitjà del clúster:")
-print(perfil)
+
+resultat = analitzar_registre(nou)
+print("Cluster assignat:", resultat["cluster_assigned"])
+print("Distàncies a cada centroid:", resultat["dists_to_centroids"])
+print("Contribució de variables (de més important a menys):")
+print(resultat["variable_contributions"])
+print("Perfil mitjà del cluster assignat:")
+print(resultat["profile_assigned"])
+
+
+global_mean = df_top[top_vars].mean()
+
+for c in range(K_OPT):
+    perfil = cluster_profiles.loc[c]
+    diff = (perfil - global_mean).abs().sort_values(ascending=False)
+    print(f"\nClúster {c} — variables més distintives:")
+    print(diff)
 
